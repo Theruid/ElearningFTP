@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
 from functools import wraps
+import sys
 
 # Get the absolute path of the current directory
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -111,7 +112,7 @@ class Content(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     views = db.Column(db.Integer, default=0)
-    completion_time = db.Column(db.Integer)  # Estimated completion time in minutes
+    completion_time = db.Column(db.Integer, default=0)  # Estimated completion time in minutes
     required = db.Column(db.Boolean, default=False)  # Is this content mandatory?
     author = db.relationship('User', back_populates='contents')
     category = db.relationship('Category', back_populates='contents')
@@ -398,7 +399,7 @@ def view_content(content_id):
     try:
         content = Content.query.get_or_404(content_id)
         
-        # Update or create progress record
+        # Get or create progress record
         progress = UserProgress.query.filter_by(
             user_id=current_user.id,
             content_id=content_id
@@ -411,15 +412,16 @@ def view_content(content_id):
                 status='in_progress'
             )
             db.session.add(progress)
+        else:
+            # Allow rewatching by setting status back to in_progress if completed
+            if progress.status == 'completed':
+                progress.status = 'in_progress'
         
+        # Update last accessed time
         progress.last_accessed = datetime.utcnow()
-        progress.time_spent = (progress.time_spent or 0) + 1  # Increment time spent
         
-        # Auto-complete content after spending enough time
-        if progress.time_spent >= content.completion_time:
-            progress.status = 'completed'
-            progress.completion_date = datetime.utcnow()
-        
+        # Increment view count
+        content.views += 1
         db.session.commit()
         
         # Get quiz attempt if exists
@@ -562,7 +564,7 @@ def upload():
                 file_type=filename.rsplit('.', 1)[1].lower(),
                 category_id=request.form['category'],
                 user_id=current_user.id,
-                completion_time=request.form.get('completion_time', type=int),
+                completion_time=request.form.get('completion_time', type=int, default=0),  # Set default to 0 if not provided
                 required=request.form.get('required') == 'on'
             )
             db.session.add(content)
@@ -641,7 +643,7 @@ def process_quiz_questions(form_data):
             if options:
                 options_list = [opt.strip() for opt in options.split('\n') if opt.strip()]
                 if len(options_list) >= 2 and question_answer in options_list:
-                    question['options'] = ','.join(options_list)
+                    question['options'] = '\n'.join(options_list)  # Store with newlines
                 else:
                     continue
             else:
@@ -1253,20 +1255,31 @@ def manage_team_members(team_id):
 
 if __name__ == '__main__':
     with app.app_context():
-        # Drop all tables and recreate them
-        db.drop_all()
+        # Only create tables if they don't exist
         db.create_all()
         
-        # Create default admin user
-        admin_user = User(
-            username='admin',
-            email='admin@example.com',
-            role=ROLE_ADMIN,
-            is_active=True
-        )
-        admin_user.set_password('1qw23er4')
-        db.session.add(admin_user)
-        db.session.commit()
-        print('Default admin user created!')
+        # Create default admin user only if no users exist
+        if not User.query.first():
+            admin_user = User(
+                username='admin',
+                email='admin@example.com',
+                role=ROLE_ADMIN,
+                is_active=True
+            )
+            admin_user.set_password('1qw23er4')
+            db.session.add(admin_user)
+            db.session.commit()
+            print('Default admin user created!')
         
-    app.run(debug=True)
+    # Production configuration
+    app.config['DEBUG'] = False
+    app.config['ENV'] = 'production'
+    
+    # Run the app on port 80, accessible from any network interface
+    try:
+        app.run(host='0.0.0.0', port=80)
+    except PermissionError:
+        print("Error: Port 80 requires administrator privileges.")
+        print("Please run the application as administrator or use a different port.")
+        print("Alternatively, you can use this command: python run.py")
+        sys.exit(1)

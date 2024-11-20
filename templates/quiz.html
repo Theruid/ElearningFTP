@@ -47,8 +47,8 @@
                         <div class="list-group">
                             {% for option in question.options.split('\n') %}
                             <label class="list-group-item">
-                                <input type="radio" name="answer_{{ question.id }}" value="{{ option.strip() }}" class="form-check-input me-2" required>
-                                {{ option.strip() }}
+                                <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" class="form-check-input me-2" required>
+                                {{ option }}
                             </label>
                             {% endfor %}
                         </div>
