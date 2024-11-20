@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Overview Cards -->
+        <div class="col-md-12 mb-4">
+            <div class="row">
+                <div class="col-xl-3 col-md-6">
+                    <div class="card bg-primary text-white mb-4">
+                        <div class="card-body">
+                            <h4 class="mb-2">{{ overall_progress }}%</h4>
+                            <div>Overall Progress</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card bg-success text-white mb-4">
+                        <div class="card-body">
+                            <h4 class="mb-2">{{ completed_items }}</h4>
+                            <div>Completed Items</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card bg-warning text-white mb-4">
+                        <div class="card-body">
+                            <h4 class="mb-2">{{ avg_quiz_score }}%</h4>
+                            <div>Average Quiz Score</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card bg-info text-white mb-4">
+                        <div class="card-body">
+                            <h4 class="mb-2">{{ total_time_spent }}h</h4>
+                            <div>Total Time Spent</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress by Category -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Progress by Category</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="categoryProgressChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for activity in recent_activities %}
+                        <div class="timeline-item">
+                            <div class="timeline-date">{{ activity.date }}</div>
+                            <div class="timeline-content">
+                                <div class="timeline-title">{{ activity.title }}</div>
+                                <div class="timeline-text">{{ activity.description }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Progress Table -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Content Progress</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="exportToPDF()">Export PDF</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="exportToCSV()">Export CSV</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Content</th>
+                                    <th>Category</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Time Spent</th>
+                                    <th>Completion Date</th>
+                                    <th>Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in progress_items %}
+                                <tr>
+                                    <td>{{ item.content.title }}</td>
+                                    <td>{{ item.content.category.name }}</td>
+                                    <td>{{ item.content.file_type }}</td>
+                                    <td>
+                                        <span class="badge {% if item.status == 'completed' %}bg-success{% elif item.status == 'in_progress' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                            {{ item.status|title }}
+                                        </span>
+                                    </td>
+                                    <td>{{ item.time_spent }} min</td>
+                                    <td>{{ item.completion_date.strftime('%Y-%m-%d') if item.completion_date else '-' }}</td>
+                                    <td>{{ item.score if item.score else '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Required Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+
+<script>
+// Initialize Category Progress Chart
+const ctx = document.getElementById('categoryProgressChart').getContext('2d');
+const categoryData = {{ category_progress|tojson }};
+
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: categoryData.map(item => item.name),
+        datasets: [{
+            data: categoryData.map(item => item.progress),
+            backgroundColor: [
+                '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e',
+                '#e74a3b', '#858796', '#5a5c69', '#2c9faf'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right'
+            }
+        }
+    }
+});
+
+// Export functions
+function exportToPDF() {
+    const doc = new jspdf.jsPDF();
+    doc.text("Progress Report", 20, 10);
+    
+    // Add summary information
+    doc.text(`Overall Progress: {{ overall_progress }}%`, 20, 30);
+    doc.text(`Completed Items: {{ completed_items }}`, 20, 40);
+    doc.text(`Average Quiz Score: {{ avg_quiz_score }}%`, 20, 50);
+    doc.text(`Total Time Spent: {{ total_time_spent }}h`, 20, 60);
+    
+    // Add progress data table
+    const progressData = {{ progress_data|tojson }};
+    const headers = ['Content', 'Category', 'Status', 'Time Spent', 'Completion Date', 'Score'];
+    let yPos = 80;
+    
+    // Add headers
+    headers.forEach((header, i) => {
+        doc.text(header, 20 + (i * 30), yPos);
+    });
+    yPos += 10;
+    
+    // Add data rows
+    progressData.forEach(item => {
+        if (yPos > 280) {  // Check if we need a new page
+            doc.addPage();
+            yPos = 20;
+            // Add headers to new page
+            headers.forEach((header, i) => {
+                doc.text(header, 20 + (i * 30), yPos);
+            });
+            yPos += 10;
+        }
+        
+        doc.text(item.title.substring(0, 15), 20, yPos);
+        doc.text(item.category.substring(0, 10), 50, yPos);
+        doc.text(item.status, 80, yPos);
+        doc.text(item.time_spent.toString() + ' min', 110, yPos);
+        doc.text(item.completion_date || '-', 140, yPos);
+        doc.text(item.score ? item.score.toString() + '%' : '-', 170, yPos);
+        yPos += 7;
+    });
+    
+    doc.save("progress_report.pdf");
+}
+
+function exportToCSV() {
+    const progressData = {{ progress_data|tojson }};
+    const ws = XLSX.utils.json_to_sheet(progressData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Progress");
+    XLSX.writeFile(wb, "progress_report.csv");
+}
+</script>
+
+<style>
+.timeline {
+    position: relative;
+    padding: 20px 0;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 40px;
+    margin-bottom: 20px;
+}
+
+.timeline-item:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-date {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.timeline-content {
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+.timeline-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.timeline-text {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}

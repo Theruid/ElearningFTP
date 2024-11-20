@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Progress Overview -->
+        <div class="col-md-12 mb-4">
+            <div class="row">
+                <div class="col-md-6">
+                    <h2>Welcome, {{ current_user.username }}!</h2>
+                    <p class="text-muted">Here's your learning progress overview</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <a href="{{ url_for('progress_dashboard') }}" class="btn btn-primary">
+                        View Detailed Progress
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Progress -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent Progress</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for progress in recent_progress %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ progress.content.title }}</h6>
+                                <small class="text-muted">
+                                    {{ progress.last_accessed.strftime('%Y-%m-%d %H:%M') }}
+                                </small>
+                            </div>
+                            <div class="progress mt-2" style="height: 10px;">
+                                <div class="progress-bar" role="progressbar" 
+                                     style="width: {{ (progress.time_spent / progress.content.completion_time * 100) if progress.content.completion_time else 0 }}%">
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                Status: 
+                                <span class="badge {% if progress.status == 'completed' %}bg-success{% elif progress.status == 'in_progress' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ progress.status|title }}
+                                </span>
+                            </small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Categories -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Categories</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for category in categories %}
+                        <a href="{{ url_for('category', category_id=category.id) }}" 
+                           class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ category.name }}</h6>
+                                <small class="text-muted">
+                                    {{ category.contents|length }} items
+                                </small>
+                            </div>
+                            <div class="progress mt-2" style="height: 5px;">
+                                <div class="progress-bar" role="progressbar" 
+                                     style="width: {{ category_progress.get(category.id, 0) }}%">
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Required Content -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Required Content</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for content in required_content %}
+                        <a href="{{ url_for('view_content', content_id=content.id) }}" 
+                           class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ content.title }}</h6>
+                                <small class="text-muted">
+                                    {{ content.category.name }}
+                                </small>
+                            </div>
+                            {% set progress = content_progress.get(content.id, {'status': 'not_started'}) %}
+                            <small class="text-muted">
+                                Status: 
+                                <span class="badge {% if progress.status == 'completed' %}bg-success{% elif progress.status == 'in_progress' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ progress.status|title }}
+                                </span>
+                            </small>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

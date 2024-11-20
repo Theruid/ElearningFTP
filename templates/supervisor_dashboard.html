@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Team Overview Cards -->
+        <div class="col-md-12 mb-4">
+            <div class="row">
+                <div class="col-xl-3 col-md-6">
+                    <div class="card bg-primary text-white mb-4">
+                        <div class="card-body">
+                            <h4 class="mb-2">{{ team_avg_progress }}%</h4>
+                            <div>Team Average Progress</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card bg-success text-white mb-4">
+                        <div class="card-body">
+                            <h4 class="mb-2">{{ completion_rate }}%</h4>
+                            <div>Completion Rate</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card bg-warning text-white mb-4">
+                        <div class="card-body">
+                            <h4 class="mb-2">{{ team_avg_quiz_score }}%</h4>
+                            <div>Average Quiz Score</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card bg-info text-white mb-4">
+                        <div class="card-body">
+                            <h4 class="mb-2">{{ active_users }}</h4>
+                            <div>Active Users</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Progress Chart -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Team Progress Overview</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="teamProgressChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Performance Chart -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Quiz Performance</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="quizPerformanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Members Progress -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Team Members Progress</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="exportTeamReport('pdf')">Export PDF</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="exportTeamReport('csv')">Export CSV</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Overall Progress</th>
+                                    <th>Completed Items</th>
+                                    <th>In Progress</th>
+                                    <th>Quiz Average</th>
+                                    <th>Last Activity</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for member in team_members %}
+                                <tr>
+                                    <td>{{ member.username }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: {{ member.progress }}%"
+                                                 aria-valuenow="{{ member.progress }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                {{ member.progress }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ member.completed_items }}</td>
+                                    <td>{{ member.in_progress_items }}</td>
+                                    <td>{{ member.quiz_average }}%</td>
+                                    <td>{{ member.last_activity.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('view_member_progress', user_id=member.id) }}" 
+                                           class="btn btn-sm btn-primary">
+                                            View Details
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Required Content -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Required Content Completion</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Content</th>
+                                    <th>Category</th>
+                                    <th>Completion Rate</th>
+                                    <th>Average Score</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for content in required_content %}
+                                <tr>
+                                    <td>{{ content.title }}</td>
+                                    <td>{{ content.category }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: {{ content.completion_rate }}%"
+                                                 aria-valuenow="{{ content.completion_rate }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                {{ content.completion_rate }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ content.avg_score }}%</td>
+                                    <td>{{ content.due_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <span class="badge {% if content.status == 'completed' %}bg-success{% elif content.status == 'in_progress' %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ content.status|title }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Required Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Team Progress Chart
+const teamCtx = document.getElementById('teamProgressChart').getContext('2d');
+const teamData = {{ team_progress|tojson }};
+
+new Chart(teamCtx, {
+    type: 'bar',
+    data: {
+        labels: teamData.map(item => item.category),
+        datasets: [{
+            label: 'Completion Rate',
+            data: teamData.map(item => item.completion_rate),
+            backgroundColor: '#4e73df'
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100
+            }
+        }
+    }
+});
+
+// Quiz Performance Chart
+const quizCtx = document.getElementById('quizPerformanceChart').getContext('2d');
+const quizData = {{ quiz_performance|tojson }};
+
+new Chart(quizCtx, {
+    type: 'line',
+    data: {
+        labels: quizData.map(item => item.quiz_name),
+        datasets: [{
+            label: 'Team Average',
+            data: quizData.map(item => item.avg_score),
+            borderColor: '#1cc88a',
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 100
+            }
+        }
+    }
+});
+
+// Export functions
+function exportTeamReport(format) {
+    window.location.href = `/export_team_report/${format}`;
+}
+</script>
+
+<style>
+.progress {
+    height: 20px;
+}
+.progress-bar {
+    line-height: 20px;
+    font-size: 12px;
+}
+</style>
+{% endblock %}

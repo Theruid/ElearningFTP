@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Edit Quiz</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Quiz Title</label>
+                            <input type="text" class="form-control" id="title" name="title" 
+                                   value="{{ quiz.title }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" 
+                                      rows="3">{{ quiz.description }}</textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Category</label>
+                            <select class="form-select" id="category" name="category" required>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}" 
+                                        {% if category.id == quiz.category_id %}selected{% endif %}>
+                                    {{ category.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="passing_score" class="form-label">Passing Score (%)</label>
+                            <input type="number" class="form-control" id="passing_score" name="passing_score" 
+                                   min="0" max="100" value="{{ quiz.passing_score }}" required>
+                        </div>
+                        
+                        <div id="questions_container">
+                            {% for question in quiz.questions %}
+                            <div class="question-item card mb-3">
+                                <div class="card-body">
+                                    <button type="button" class="btn-close float-end" onclick="removeQuestion(this)"></button>
+                                    <div class="mb-3">
+                                        <label class="form-label">Question Text</label>
+                                        <textarea class="form-control" name="questions[{{ loop.index0 }}][text]" 
+                                                  required>{{ question.question_text }}</textarea>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Question Type</label>
+                                        <select class="form-select question-type" 
+                                                name="questions[{{ loop.index0 }}][type]" 
+                                                onchange="updateQuestionOptions(this)" required>
+                                            <option value="multiple_choice" 
+                                                    {% if question.question_type == 'multiple_choice' %}selected{% endif %}>
+                                                Multiple Choice
+                                            </option>
+                                            <option value="true_false" 
+                                                    {% if question.question_type == 'true_false' %}selected{% endif %}>
+                                                True/False
+                                            </option>
+                                            <option value="text" 
+                                                    {% if question.question_type == 'text' %}selected{% endif %}>
+                                                Text Answer
+                                            </option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="options-container">
+                                        {% if question.question_type == 'multiple_choice' and question.options %}
+                                        <div class="mb-3">
+                                            <label class="form-label">Options (one per line)</label>
+                                            <textarea class="form-control" 
+                                                      name="questions[{{ loop.index0 }}][options]" 
+                                                      rows="4" required>{{ question.options }}</textarea>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Points</label>
+                                        <input type="number" class="form-control" 
+                                               name="questions[{{ loop.index0 }}][points]" 
+                                               value="{{ question.points }}" min="1" required>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Correct Answer</label>
+                                        <input type="text" class="form-control" 
+                                               name="questions[{{ loop.index0 }}][answer]" 
+                                               value="{{ question.correct_answer }}" required>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <button type="button" class="btn btn-secondary mb-3" onclick="addQuestion()">
+                            <i class="fas fa-plus"></i> Add Question
+                        </button>
+                        
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                            <a href="{{ url_for('manage_quizzes') }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<template id="question_template">
+    <div class="question-item card mb-3">
+        <div class="card-body">
+            <button type="button" class="btn-close float-end" onclick="removeQuestion(this)"></button>
+            <div class="mb-3">
+                <label class="form-label">Question Text</label>
+                <textarea class="form-control" name="questions[0][text]" required></textarea>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Question Type</label>
+                <select class="form-select question-type" name="questions[0][type]" 
+                        onchange="updateQuestionOptions(this)" required>
+                    <option value="multiple_choice">Multiple Choice</option>
+                    <option value="true_false">True/False</option>
+                    <option value="text">Text Answer</option>
+                </select>
+            </div>
+            
+            <div class="options-container">
+                <!-- Options will be added here based on question type -->
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Points</label>
+                <input type="number" class="form-control" name="questions[0][points]" value="1" min="1" required>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Correct Answer</label>
+                <input type="text" class="form-control" name="questions[0][answer]" required>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+let questionCounter = {{ quiz.questions|length }};
+
+function addQuestion() {
+    const template = document.getElementById('question_template');
+    const container = document.getElementById('questions_container');
+    const clone = template.content.cloneNode(true);
+    
+    // Update the name attributes with the current counter
+    const inputs = clone.querySelectorAll('[name^="questions["]');
+    inputs.forEach(input => {
+        const name = input.getAttribute('name');
+        input.setAttribute('name', name.replace('questions[0]', `questions[${questionCounter}]`));
+    });
+    
+    container.appendChild(clone);
+    questionCounter++;
+    
+    // Initialize the options for the new question
+    const newQuestion = container.lastElementChild;
+    const typeSelect = newQuestion.querySelector('.question-type');
+    updateQuestionOptions(typeSelect);
+}
+
+function removeQuestion(button) {
+    const questionItem = button.closest('.question-item');
+    questionItem.remove();
+}
+
+function updateQuestionOptions(selectElement) {
+    const questionItem = selectElement.closest('.question-item');
+    const optionsContainer = questionItem.querySelector('.options-container');
+    const answerInput = questionItem.querySelector('input[name$="[answer]"]');
+    const questionIndex = selectElement.name.match(/\d+/)[0];
+    
+    optionsContainer.innerHTML = '';
+    
+    if (selectElement.value === 'multiple_choice') {
+        const optionsDiv = document.createElement('div');
+        optionsDiv.className = 'mb-3';
+        optionsDiv.innerHTML = `
+            <label class="form-label">Options (one per line)</label>
+            <textarea class="form-control" name="questions[${questionIndex}][options]" rows="4" required
+                placeholder="Enter each option on a new line"></textarea>
+        `;
+        optionsContainer.appendChild(optionsDiv);
+        answerInput.placeholder = "Enter the correct option exactly as written above";
+    } else if (selectElement.value === 'true_false') {
+        answerInput.value = '';
+        answerInput.placeholder = "Enter 'true' or 'false'";
+    } else {
+        answerInput.value = '';
+        answerInput.placeholder = "Enter the correct answer";
+    }
+}
+
+// Initialize options for existing questions
+document.querySelectorAll('.question-type').forEach(select => {
+    updateQuestionOptions(select);
+});
+</script>
+{% endblock %}

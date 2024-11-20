@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('category', category_id=quiz.category_id) }}">{{ quiz.category.name }}</a></li>
+            <li class="breadcrumb-item active">{{ quiz.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="card">
+        <div class="card-body">
+            <h2 class="card-title">{{ quiz.title }}</h2>
+            {% if quiz.description %}
+            <p class="card-text">{{ quiz.description }}</p>
+            {% endif %}
+            
+            {% if previous_attempt %}
+            <div class="alert {% if previous_attempt.passed %}alert-success{% else %}alert-warning{% endif %} mb-4">
+                <h5 class="alert-heading">Previous Attempt</h5>
+                <p class="mb-1">Score: {{ "%.1f"|format(previous_attempt.score) }}%</p>
+                <p class="mb-1">Date: {{ previous_attempt.completed_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p class="mb-0">Status: {% if previous_attempt.passed %}Passed{% else %}Failed{% endif %}</p>
+                <hr>
+                <p class="mb-0">
+                    <a href="{{ url_for('view_quiz_results', attempt_id=previous_attempt.id) }}" class="alert-link">
+                        View Previous Results
+                    </a>
+                </p>
+            </div>
+            {% endif %}
+            
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Passing score: {{ quiz.passing_score }}%
+            </div>
+
+            <form method="POST" action="{{ url_for('submit_quiz', quiz_id=quiz.id) }}" id="quiz-form">
+                {% for question in quiz.questions %}
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Question {{ loop.index }}</h5>
+                        <p class="card-text">{{ question.question_text }}</p>
+                        
+                        {% if question.question_type == 'multiple_choice' %}
+                        <div class="list-group">
+                            {% for option in question.options.split('\n') %}
+                            <label class="list-group-item">
+                                <input type="radio" name="answer_{{ question.id }}" value="{{ option.strip() }}" class="form-check-input me-2" required>
+                                {{ option.strip() }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                        
+                        {% elif question.question_type == 'true_false' %}
+                        <div class="list-group">
+                            <label class="list-group-item">
+                                <input type="radio" name="answer_{{ question.id }}" value="true" class="form-check-input me-2" required>
+                                True
+                            </label>
+                            <label class="list-group-item">
+                                <input type="radio" name="answer_{{ question.id }}" value="false" class="form-check-input me-2" required>
+                                False
+                            </label>
+                        </div>
+                        
+                        {% else %}
+                        <input type="text" name="answer_{{ question.id }}" class="form-control" required>
+                        {% endif %}
+                        
+                        <div class="text-muted mt-2">
+                            Points: {{ question.points }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('category', category_id=quiz.category_id) }}" class="btn btn-secondary">
+                        Back to Category
+                    </a>
+                    <button type="submit" class="btn btn-primary">Submit Quiz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('quiz-form').addEventListener('submit', function(e) {
+    if (!confirm('Are you sure you want to submit this quiz? You cannot change your answers after submission.')) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

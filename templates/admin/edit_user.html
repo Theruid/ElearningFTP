@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Edit User</h2>
+    
+    <form method="POST">
+        <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
+        </div>
+        
+        <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+        </div>
+        
+        <div class="mb-3">
+            <label for="role" class="form-label">Role</label>
+            <select class="form-select" id="role" name="role" required>
+                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                <option value="supervisor" {% if user.role == 'supervisor' %}selected{% endif %}>Supervisor</option>
+                <option value="employee" {% if user.role == 'employee' %}selected{% endif %}>Employee</option>
+            </select>
+        </div>
+        
+        <div class="mb-3">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if user.is_active %}checked{% endif %}>
+                <label class="form-check-label" for="is_active">Active</label>
+            </div>
+        </div>
+        
+        <div id="supervisor_categories" class="mb-3" {% if user.role != 'supervisor' %}style="display: none;"{% endif %}>
+            <label class="form-label">Supervised Categories</label>
+            {% for category in categories %}
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" name="supervised_categories" value="{{ category.id }}"
+                       {% if category in user.supervised_categories %}checked{% endif %}>
+                <label class="form-check-label">{{ category.name }}</label>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{{ url_for('manage_users') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+
+<script>
+document.getElementById('role').addEventListener('change', function() {
+    var supervisorCategories = document.getElementById('supervisor_categories');
+    supervisorCategories.style.display = this.value === 'supervisor' ? 'block' : 'none';
+});
+</script>
+{% endblock %}

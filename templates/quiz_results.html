@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2 class="card-title mb-0">Quiz Results</h2>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h4>{{ attempt.quiz.title }}</h4>
+                            <p class="text-muted">{{ attempt.quiz.description }}</p>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <h3>
+                                Score: {{ "%.1f"|format(attempt.score) }}%
+                                {% if attempt.passed %}
+                                <span class="badge bg-success">Passed</span>
+                                {% else %}
+                                <span class="badge bg-danger">Failed</span>
+                                {% endif %}
+                            </h3>
+                            <p class="text-muted">
+                                Passing Score: {{ attempt.quiz.passing_score }}%
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="questions-review">
+                        {% for answer in attempt.answers %}
+                        <div class="card mb-3 {% if answer.is_correct %}border-success{% else %}border-danger{% endif %}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <h5 class="card-title">Question {{ loop.index }}</h5>
+                                    <div>
+                                        {% if answer.is_correct %}
+                                        <span class="badge bg-success">Correct</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Incorrect</span>
+                                        {% endif %}
+                                        <span class="badge bg-secondary ms-1">{{ answer.points_earned }}/{{ answer.question.points }} points</span>
+                                    </div>
+                                </div>
+                                
+                                <p class="card-text">{{ answer.question.question_text }}</p>
+                                
+                                {% if answer.question.question_type == 'multiple_choice' %}
+                                <div class="options mt-2">
+                                    {% for option in answer.question.options.split(',') %}
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" disabled
+                                               {% if option == answer.user_answer %}checked{% endif %}
+                                               {% if option == answer.question.correct_answer %}data-correct="true"{% endif %}>
+                                        <label class="form-check-label {% if option == answer.question.correct_answer %}text-success fw-bold{% endif %}">
+                                            {{ option }}
+                                            {% if option == answer.question.correct_answer %}
+                                            <i class="fas fa-check text-success"></i>
+                                            {% endif %}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="row mt-3">
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Your Answer:</strong></p>
+                                        <p class="{% if answer.is_correct %}text-success{% else %}text-danger{% endif %}">
+                                            {{ answer.user_answer }}
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Correct Answer:</strong></p>
+                                        <p class="text-success">{{ answer.question.correct_answer }}</p>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('take_quiz_standalone', quiz_id=attempt.quiz.id) }}" class="btn btn-primary">
+                            Try Again
+                        </a>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                            Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.questions-review .form-check-input[data-correct="true"] {
+    background-color: #198754;
+    border-color: #198754;
+}
+.questions-review .form-check-input:checked:not([data-correct="true"]) {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+</style>
+{% endblock %}

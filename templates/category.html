@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            {% if category.parent %}
+            <li class="breadcrumb-item"><a href="{{ url_for('category', category_id=category.parent.id) }}">{{ category.parent.name }}</a></li>
+            {% endif %}
+            <li class="breadcrumb-item active">{{ category.name }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Subcategories Section -->
+        {% if category.subcategories %}
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Subcategories</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for subcategory in category.subcategories %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ subcategory.name }}</h5>
+                                    {% if subcategory.description %}
+                                    <p class="card-text">{{ subcategory.description }}</p>
+                                    {% endif %}
+                                    <a href="{{ url_for('category', category_id=subcategory.id) }}" class="btn btn-primary">View</a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Content Section -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Learning Content</h3>
+                </div>
+                <div class="card-body">
+                    {% if category.contents %}
+                    <div class="list-group">
+                        {% for content in category.contents %}
+                        <a href="{{ url_for('view_content', content_id=content.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ content.title }}</h5>
+                                {% if content.required %}
+                                <span class="badge bg-danger">Required</span>
+                                {% endif %}
+                            </div>
+                            {% if content.description %}
+                            <p class="mb-1">{{ content.description }}</p>
+                            {% endif %}
+                            <small class="text-muted">
+                                Added {{ content.upload_date.strftime('%Y-%m-%d') }} by {{ content.author.username }}
+                                {% if content.completion_time %}
+                                • Estimated time: {{ content.completion_time }} minutes
+                                {% endif %}
+                            </small>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No content available in this category yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quizzes and Stats Section -->
+        <div class="col-md-4">
+            <!-- Quizzes Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Available Quizzes</h3>
+                </div>
+                <div class="card-body">
+                    {% if category.quizzes %}
+                    <div class="list-group">
+                        {% for quiz in category.quizzes %}
+                        <a href="{{ url_for('take_quiz_standalone', quiz_id=quiz.id) }}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ quiz.title }}</h5>
+                                {% set user_attempts = quiz.attempts|selectattr('user_id', 'equalto', current_user.id)|list %}
+                                {% if user_attempts %}
+                                    {% set latest_attempt = user_attempts|sort(attribute='completed_at')|last %}
+                                    {% if latest_attempt.passed %}
+                                    <span class="badge bg-success">Passed</span>
+                                    {% else %}
+                                    <span class="badge bg-warning">Attempted</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            {% if quiz.description %}
+                            <p class="mb-1">{{ quiz.description }}</p>
+                            {% endif %}
+                            <small class="text-muted">
+                                Passing score: {{ quiz.passing_score }}%
+                                {% if user_attempts %}
+                                • Last attempt: {{ latest_attempt.score|round(1) }}%
+                                {% endif %}
+                            </small>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No quizzes available in this category yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Stats Section -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Category Stats</h3>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Content Items
+                            <span class="badge bg-primary rounded-pill">{{ category.contents|length }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Quizzes
+                            <span class="badge bg-info rounded-pill">{{ category.quizzes|length }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            Subcategories
+                            <span class="badge bg-secondary rounded-pill">{{ category.subcategories|length }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

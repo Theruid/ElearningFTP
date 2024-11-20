@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <h2>Manage Categories</h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Create Category Form -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Create New Category</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Category Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="parent_id" class="form-label">Parent Category</label>
+                            <select class="form-select" id="parent_id" name="parent_id">
+                                <option value="0">None (Top Level)</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Create Category</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category List -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Existing Categories</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Parent</th>
+                                    <th>Content Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for category in categories %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('category', category_id=category.id) }}">{{ category.name }}</a>
+                                    </td>
+                                    <td>{{ category.description }}</td>
+                                    <td>
+                                        {% if category.parent %}
+                                        {{ category.parent.name }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ category.contents|length }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

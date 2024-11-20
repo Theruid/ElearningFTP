@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Upload Content</h2>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="title" class="form-label">Title</label>
+            <input type="text" class="form-control" id="title" name="title" required>
+        </div>
+        
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+        </div>
+        
+        <div class="mb-3">
+            <label for="category" class="form-label">Category</label>
+            <select class="form-select" id="category" name="category" required>
+                {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="mb-3">
+            <label for="completion_time" class="form-label">Estimated Completion Time (minutes)</label>
+            <input type="number" class="form-control" id="completion_time" name="completion_time" min="1">
+        </div>
+        
+        <div class="mb-3">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="required" name="required">
+                <label class="form-check-label" for="required">Mark as Required Content</label>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="file" class="form-label">File</label>
+            <input type="file" class="form-control" id="file" name="file" required>
+            <div class="form-text">Allowed file types: {{ allowed_extensions|join(', ') }}</div>
+        </div>
+        
+        <div class="mb-3">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="add_quiz" name="add_quiz">
+                <label class="form-check-label" for="add_quiz">Add Quiz for this Content</label>
+            </div>
+        </div>
+        
+        <div id="quiz_section" style="display: none;">
+            <h3 class="h4 mt-4">Quiz Details</h3>
+            
+            <div class="mb-3">
+                <label for="quiz_title" class="form-label">Quiz Title</label>
+                <input type="text" class="form-control" id="quiz_title" name="quiz_title">
+            </div>
+            
+            <div class="mb-3">
+                <label for="quiz_description" class="form-label">Quiz Description</label>
+                <textarea class="form-control" id="quiz_description" name="quiz_description" rows="2"></textarea>
+            </div>
+            
+            <div class="mb-3">
+                <label for="passing_score" class="form-label">Passing Score (%)</label>
+                <input type="number" class="form-control" id="passing_score" name="passing_score" min="0" max="100" value="70">
+            </div>
+            
+            <div id="questions_container">
+                <!-- Questions will be added here dynamically -->
+            </div>
+            
+            <button type="button" class="btn btn-secondary mb-3" onclick="addQuestion()">Add Question</button>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+</div>
+
+<template id="question_template">
+    <div class="question-item card mb-3">
+        <div class="card-body">
+            <button type="button" class="btn-close float-end" onclick="removeQuestion(this)"></button>
+            <div class="mb-3">
+                <label class="form-label">Question Text</label>
+                <textarea class="form-control" name="questions[0][text]" required></textarea>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Question Type</label>
+                <select class="form-select question-type" name="questions[0][type]" onchange="updateQuestionOptions(this)" required>
+                    <option value="multiple_choice">Multiple Choice</option>
+                    <option value="true_false">True/False</option>
+                    <option value="text">Text Answer</option>
+                </select>
+            </div>
+            
+            <div class="options-container">
+                <!-- Options will be added here based on question type -->
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Points</label>
+                <input type="number" class="form-control" name="questions[0][points]" value="1" min="1" required>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Correct Answer</label>
+                <input type="text" class="form-control" name="questions[0][answer]" required>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+document.getElementById('add_quiz').addEventListener('change', function() {
+    document.getElementById('quiz_section').style.display = this.checked ? 'block' : 'none';
+});
+
+let questionCounter = 0;
+
+function addQuestion() {
+    const template = document.getElementById('question_template');
+    const container = document.getElementById('questions_container');
+    const clone = template.content.cloneNode(true);
+    
+    // Update the name attributes with the current counter
+    const inputs = clone.querySelectorAll('[name^="questions["]');
+    inputs.forEach(input => {
+        const name = input.getAttribute('name');
+        input.setAttribute('name', name.replace('questions[0]', `questions[${questionCounter}]`));
+    });
+    
+    container.appendChild(clone);
+    questionCounter++;
+    
+    // Initialize the options for the new question
+    const newQuestion = container.lastElementChild;
+    const typeSelect = newQuestion.querySelector('.question-type');
+    updateQuestionOptions(typeSelect);
+}
+
+function removeQuestion(button) {
+    const questionItem = button.closest('.question-item');
+    questionItem.remove();
+}
+
+function updateQuestionOptions(selectElement) {
+    const questionItem = selectElement.closest('.question-item');
+    const optionsContainer = questionItem.querySelector('.options-container');
+    const answerInput = questionItem.querySelector('input[name$="[answer]"]');
+    const questionIndex = selectElement.name.match(/\d+/)[0];
+    
+    optionsContainer.innerHTML = '';
+    
+    if (selectElement.value === 'multiple_choice') {
+        const optionsDiv = document.createElement('div');
+        optionsDiv.className = 'mb-3';
+        optionsDiv.innerHTML = `
+            <label class="form-label">Options (one per line)</label>
+            <textarea class="form-control" name="questions[${questionIndex}][options]" rows="4" required
+                placeholder="Enter each option on a new line"></textarea>
+        `;
+        optionsContainer.appendChild(optionsDiv);
+        answerInput.placeholder = "Enter the correct option exactly as written above";
+    } else if (selectElement.value === 'true_false') {
+        answerInput.value = '';
+        answerInput.placeholder = "Enter 'true' or 'false'";
+    } else {
+        answerInput.value = '';
+        answerInput.placeholder = "Enter the correct answer";
+    }
+}
+</script>
+{% endblock %}

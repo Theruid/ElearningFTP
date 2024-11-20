@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('category', category_id=content.category.id) }}">{{ content.category.name }}</a></li>
+            <li class="breadcrumb-item active">{{ content.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="card">
+        <div class="card-body">
+            <h2 class="card-title">{{ content.title }}</h2>
+            <p class="text-muted">
+                Uploaded by {{ content.author.username }} on {{ content.upload_date.strftime('%Y-%m-%d') }}
+                {% if content.completion_time %}
+                | Estimated completion time: {{ content.completion_time }} minutes
+                {% endif %}
+                {% if content.required %}
+                | <span class="badge bg-warning">Required</span>
+                {% endif %}
+            </p>
+            
+            <div class="mb-4">
+                <h5>Description</h5>
+                <p>{{ content.description or 'No description provided.' }}</p>
+            </div>
+
+            {% if progress %}
+            <div class="mb-4">
+                <h5>Your Progress</h5>
+                <div class="progress">
+                    {% if progress.status == 'completed' %}
+                    <div class="progress-bar bg-success" style="width: 100%">Completed</div>
+                    {% elif progress.status == 'in_progress' %}
+                    <div class="progress-bar bg-info" style="width: 50%">In Progress</div>
+                    {% else %}
+                    <div class="progress-bar" style="width: 0%">Not Started</div>
+                    {% endif %}
+                </div>
+                {% if progress.completion_date %}
+                <small class="text-muted">Completed on {{ progress.completion_date.strftime('%Y-%m-%d') }}</small>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="mb-4">
+                <h5>Content Preview</h5>
+                {% if content.file_type in ['pdf', 'txt', 'doc', 'docx'] %}
+                <div class="embed-responsive embed-responsive-16by9">
+                    <iframe class="embed-responsive-item" src="{{ url_for('download_content', content_id=content.id) }}" style="width: 100%; height: 600px;"></iframe>
+                </div>
+                {% elif content.file_type in ['jpg', 'jpeg', 'png', 'gif'] %}
+                <img src="{{ url_for('download_content', content_id=content.id) }}" class="img-fluid" alt="{{ content.title }}">
+                {% elif content.file_type in ['mp4', 'webm'] %}
+                <video controls class="w-100">
+                    <source src="{{ url_for('download_content', content_id=content.id) }}" type="video/{{ content.file_type }}">
+                    Your browser does not support the video tag.
+                </video>
+                {% else %}
+                <p>Preview not available for this file type.</p>
+                {% endif %}
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('download_content', content_id=content.id) }}" class="btn btn-primary">
+                    <i class="bi bi-download"></i> Download
+                </a>
+                
+                {% if content.quiz %}
+                <div>
+                    {% if quiz_attempt and quiz_attempt.passed %}
+                    <span class="badge bg-success">Quiz Passed ({{ quiz_attempt.score }}%)</span>
+                    {% elif quiz_attempt %}
+                    <span class="badge bg-danger">Quiz Failed ({{ quiz_attempt.score }}%)</span>
+                    <a href="{{ url_for('take_quiz', content_id=content.id) }}" class="btn btn-warning">Retry Quiz</a>
+                    {% else %}
+                    <a href="{{ url_for('take_quiz', content_id=content.id) }}" class="btn btn-info">Take Quiz</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
