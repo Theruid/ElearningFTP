@@ -1,0 +1,19 @@
+# Ignore uploads directory
+uploads/
+uploads/*
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Instance folder
+instance/
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Environment variables
+.env
+.env.*
