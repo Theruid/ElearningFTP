@@ -18,7 +18,7 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ems.db'
 app.config['UPLOAD_FOLDER'] = os.path.join(basedir, 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB max file size
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'mp4', 'zip'}
 
 # Create uploads directory if it doesn't exist
@@ -178,6 +178,14 @@ class QuizAnswer(db.Model):
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def generate_unique_filename(original_filename, content_id=None):
+    """Generate a unique filename while preserving the original name and extension."""
+    name, ext = os.path.splitext(original_filename)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    if content_id:
+        return f"{name}_{content_id}{ext}"
+    return f"{name}_{timestamp}{ext}"
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -549,26 +557,40 @@ def upload():
             flash('No file selected', 'error')
             return redirect(request.url)
         
+        if '.' not in file.filename:
+            flash('File must have an extension', 'error')
+            return redirect(request.url)
+            
+        file_extension = file.filename.rsplit('.', 1)[1].lower()
         if not allowed_file(file.filename):
-            flash('File type not allowed', 'error')
+            flash(f'File type .{file_extension} is not allowed. Allowed types are: {", ".join(ALLOWED_EXTENSIONS)}', 'error')
             return redirect(request.url)
         
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            
+        try:
+            # Create content record first to get the ID
             content = Content(
                 title=request.form['title'],
                 description=request.form.get('description', ''),
-                filename=filename,
-                file_type=filename.rsplit('.', 1)[1].lower(),
+                filename='',  # Will update after saving file
+                file_type=file_extension,
                 category_id=request.form['category'],
                 user_id=current_user.id,
-                completion_time=request.form.get('completion_time', type=int, default=0),  # Set default to 0 if not provided
+                completion_time=request.form.get('completion_time', type=int, default=0),
                 required=request.form.get('required') == 'on'
             )
             db.session.add(content)
-            db.session.commit()
+            db.session.flush()  # This assigns an ID to content
+
+            # Generate unique filename using content ID
+            original_filename = secure_filename(file.filename)
+            unique_filename = generate_unique_filename(original_filename, content.id)
+            
+            # Save file with unique name
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            file.save(file_path)
+            
+            # Update content record with the filename
+            content.filename = unique_filename
             
             # Create quiz if requested
             if request.form.get('add_quiz') == 'on':
@@ -582,81 +604,74 @@ def upload():
                 db.session.add(quiz)
                 db.session.commit()
                 
-                # Process questions
-                questions_data = process_quiz_questions(request.form)
-                for q_data in questions_data:
-                    question = QuizQuestion(
-                        quiz_id=quiz.id,
-                        question_text=q_data['text'],
-                        question_type=q_data['type'],
-                        correct_answer=q_data['answer'],
-                        options=q_data.get('options'),
-                        points=q_data['points']
-                    )
-                    db.session.add(question)
-                
-                db.session.commit()
+                process_quiz_questions(request.form)
             
-            flash('Content uploaded successfully', 'success')
+            db.session.commit()
+            flash('Content uploaded successfully!', 'success')
             return redirect(url_for('dashboard'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error uploading file: {str(e)}', 'error')
+            return redirect(request.url)
     
     categories = Category.query.all()
-    return render_template('upload.html', categories=categories, allowed_extensions=ALLOWED_EXTENSIONS)
+    return render_template('upload.html', allowed_extensions=ALLOWED_EXTENSIONS, categories=categories)
 
-def process_quiz_questions(form_data):
-    questions = []
+@app.route('/edit-content/<int:content_id>', methods=['GET', 'POST'])
+@login_required
+@admin_or_supervisor_required
+def edit_content(content_id):
+    content = Content.query.get_or_404(content_id)
     
-    # Get all form keys that start with 'questions['
-    question_keys = [k for k in form_data.keys() if k.startswith('questions[') and k.endswith('[text]')]
+    if request.method == 'POST':
+        try:
+            content.title = request.form['title']
+            content.description = request.form.get('description', '')
+            content.category_id = request.form['category']
+            content.completion_time = request.form.get('completion_time', type=int, default=0)
+            content.required = request.form.get('required') == 'on'
+            
+            # Handle file upload if new file is provided
+            if 'file' in request.files and request.files['file'].filename:
+                file = request.files['file']
+                if '.' not in file.filename:
+                    flash('File must have an extension', 'error')
+                    return redirect(request.url)
+                    
+                file_extension = file.filename.rsplit('.', 1)[1].lower()
+                if not allowed_file(file.filename):
+                    flash(f'File type .{file_extension} is not allowed. Allowed types are: {", ".join(ALLOWED_EXTENSIONS)}', 'error')
+                    return redirect(request.url)
+                
+                # Delete old file if it exists
+                old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], content.filename)
+                if os.path.exists(old_file_path):
+                    os.remove(old_file_path)
+                
+                # Generate new filename using content ID
+                original_filename = secure_filename(file.filename)
+                new_filename = generate_unique_filename(original_filename, content.id)
+                
+                # Save new file
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
+                file.save(file_path)
+                
+                # Update content record
+                content.filename = new_filename
+                content.file_type = file_extension
+            
+            db.session.commit()
+            flash('Content updated successfully!', 'success')
+            return redirect(url_for('manage_content'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating content: {str(e)}', 'error')
+            return redirect(request.url)
     
-    # Extract question indices from the keys
-    indices = []
-    for key in question_keys:
-        match = key.split('[')[1].split(']')[0]
-        if match:
-            indices.append(match)
-    
-    # Process each question
-    for index in indices:
-        prefix = f'questions[{index}]'
-        
-        question_type = form_data.get(f'{prefix}[type]')
-        question_text = form_data.get(f'{prefix}[text]', '').strip()
-        question_answer = form_data.get(f'{prefix}[answer]', '').strip()
-        question_points = form_data.get(f'{prefix}[points]', '1')
-        
-        # Skip if any required field is missing
-        if not all([question_type, question_text, question_answer]):
-            continue
-        
-        # Basic question data
-        question = {
-            'text': question_text,
-            'type': question_type,
-            'answer': question_answer,
-            'points': int(question_points)
-        }
-        
-        # Handle options for multiple choice questions
-        if question_type == 'multiple_choice':
-            options = form_data.get(f'{prefix}[options]', '').strip()
-            if options:
-                options_list = [opt.strip() for opt in options.split('\n') if opt.strip()]
-                if len(options_list) >= 2 and question_answer in options_list:
-                    question['options'] = '\n'.join(options_list)  # Store with newlines
-                else:
-                    continue
-            else:
-                continue
-        elif question_type == 'true_false':
-            # Normalize true/false answers
-            question['answer'] = question_answer.lower()
-            if question['answer'] not in ['true', 'false']:
-                continue
-        
-        questions.append(question)
-    
-    return questions
+    categories = Category.query.all()
+    return render_template('admin/edit_content.html', content=content, categories=categories, allowed_extensions=ALLOWED_EXTENSIONS)
 
 @app.route('/content/<int:content_id>/quiz', methods=['GET', 'POST'])
 @login_required
@@ -1173,6 +1188,40 @@ def view_quiz_results(attempt_id):
     
     return render_template('quiz_results.html', attempt=attempt)
 
+# Content Management Routes
+@app.route('/manage-content')
+@login_required
+@admin_or_supervisor_required
+def manage_content():
+    contents = Content.query.all()
+    return render_template('admin/manage_content.html', contents=contents)
+
+@app.route('/delete-content/<int:content_id>', methods=['POST'])
+@login_required
+@admin_or_supervisor_required
+def delete_content(content_id):
+    content = Content.query.get_or_404(content_id)
+    try:
+        # Delete the file
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], content.filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        
+        # Delete associated quiz if exists
+        quiz = Quiz.query.filter_by(title=content.title + ' Quiz').first()
+        if quiz:
+            db.session.delete(quiz)
+        
+        # Delete the content
+        db.session.delete(content)
+        db.session.commit()
+        flash('Content deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting content: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_content'))
+
 # Team Management Routes
 @app.route('/admin/teams', methods=['GET', 'POST'])
 @login_required
@@ -1277,7 +1326,7 @@ if __name__ == '__main__':
     
     # Run the app on port 80, accessible from any network interface
     try:
-        app.run(host='0.0.0.0', port=80)
+        app.run(host='0.0.0.0', port=8080)
     except PermissionError:
         print("Error: Port 80 requires administrator privileges.")
         print("Please run the application as administrator or use a different port.")

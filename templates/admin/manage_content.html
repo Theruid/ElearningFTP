@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Manage Content</h2>
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload New Content</a>
+    </div>
+
+    {% if contents %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>File Type</th>
+                    <th>Upload Date</th>
+                    <th>Required</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for content in contents %}
+                <tr>
+                    <td>{{ content.title }}</td>
+                    <td>{{ content.category.name }}</td>
+                    <td>{{ content.file_type }}</td>
+                    <td>{{ content.upload_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        {% if content.required %}
+                        <span class="badge bg-primary">Required</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Optional</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('edit_content', content_id=content.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                            <button type="button" class="btn btn-sm btn-danger" 
+                                    onclick="confirmDelete({{ content.id }}, '{{ content.title }}')">Delete</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">No content available.</div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete "<span id="contentTitle"></span>"?
+                This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmDelete(contentId, title) {
+    document.getElementById('contentTitle').textContent = title;
+    document.getElementById('deleteForm').action = "{{ url_for('delete_content', content_id=0) }}".replace('0', contentId);
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
+{% endblock %}

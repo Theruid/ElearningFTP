@@ -39,7 +39,13 @@
         <div class="mb-3">
             <label for="file" class="form-label">File</label>
             <input type="file" class="form-control" id="file" name="file" required>
-            <div class="form-text">Allowed file types: {{ allowed_extensions|join(', ') }}</div>
+            <div class="form-text">
+                Allowed file types: {{ allowed_extensions|join(', ') }}<br>
+                Maximum file size: 1GB
+            </div>
+            <div class="progress mt-2" style="display: none;" id="upload-progress-container">
+                <div class="progress-bar" role="progressbar" id="upload-progress-bar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+            </div>
         </div>
         
         <div class="mb-3">
@@ -172,5 +178,54 @@ function updateQuestionOptions(selectElement) {
         answerInput.placeholder = "Enter the correct answer";
     }
 }
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelector('form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const progressContainer = document.getElementById('upload-progress-container');
+    const progressBar = document.getElementById('upload-progress-bar');
+    
+    progressContainer.style.display = 'block';
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+    }).then(response => {
+        if (response.ok) {
+            window.location.href = '/dashboard';
+        } else {
+            throw new Error('Upload failed');
+        }
+    }).catch(error => {
+        alert('Upload failed: ' + error.message);
+    });
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', window.location.href, true);
+    
+    xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            progressBar.style.width = percentComplete + '%';
+            progressBar.textContent = Math.round(percentComplete) + '%';
+            progressBar.setAttribute('aria-valuenow', percentComplete);
+        }
+    };
+    
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            window.location.href = '/dashboard';
+        } else {
+            alert('Upload failed. Please try again.');
+        }
+    };
+    
+    xhr.send(formData);
+});
 </script>
 {% endblock %}

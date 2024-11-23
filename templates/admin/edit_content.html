@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Edit Content</h2>
+        <a href="{{ url_for('manage_content') }}" class="btn btn-secondary">Back to Content List</a>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="title" class="form-label">Title</label>
+            <input type="text" class="form-control" id="title" name="title" value="{{ content.title }}" required>
+        </div>
+        
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea class="form-control" id="description" name="description" rows="3">{{ content.description }}</textarea>
+        </div>
+        
+        <div class="mb-3">
+            <label for="category" class="form-label">Category</label>
+            <select class="form-select" id="category" name="category" required>
+                {% for category in categories %}
+                <option value="{{ category.id }}" {% if category.id == content.category_id %}selected{% endif %}>
+                    {{ category.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="mb-3">
+            <label for="completion_time" class="form-label">Estimated Completion Time (minutes)</label>
+            <input type="number" class="form-control" id="completion_time" name="completion_time" 
+                   min="1" value="{{ content.completion_time }}">
+        </div>
+        
+        <div class="mb-3">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="required" name="required"
+                       {% if content.required %}checked{% endif %}>
+                <label class="form-check-label" for="required">Mark as Required Content</label>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="file" class="form-label">Current File: {{ content.filename }}</label>
+            <input type="file" class="form-control" id="file" name="file">
+            <div class="form-text">
+                Leave empty to keep the current file.<br>
+                Allowed file types: {{ allowed_extensions|join(', ') }}<br>
+                Maximum file size: 1GB
+            </div>
+            <div class="progress mt-2" style="display: none;" id="upload-progress-container">
+                <div class="progress-bar" role="progressbar" id="upload-progress-bar" 
+                     style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Update Content</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelector('form').addEventListener('submit', function(e) {
+    if (document.getElementById('file').files.length > 0) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const progressContainer = document.getElementById('upload-progress-container');
+        const progressBar = document.getElementById('upload-progress-bar');
+        
+        progressContainer.style.display = 'block';
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', window.location.href, true);
+        
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                progressBar.style.width = percentComplete + '%';
+                progressBar.textContent = Math.round(percentComplete) + '%';
+                progressBar.setAttribute('aria-valuenow', percentComplete);
+            }
+        };
+        
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                window.location.href = "{{ url_for('manage_content') }}";
+            } else {
+                alert('Upload failed. Please try again.');
+            }
+        };
+        
+        xhr.send(formData);
+    }
+});
+</script>
+{% endblock %}
