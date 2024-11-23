@@ -1,6 +1,6 @@
-# Ignore uploads directory
-uploads/
+# Ignore contents of uploads directory but keep the directory
 uploads/*
+!uploads/.gitkeep
 
 # Python virtual environment
 venv/
